@@ -18,7 +18,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -65,7 +65,7 @@ public class QuicksortService implements ServerTickEvents.EndWorldTick {
     // Fields
 
     private final List<QuicksorterJob> jobs = new ArrayList<>();
-    private Map<ResourceLocation, QuicksortChestConfig> config = null;
+    private Map<Identifier, QuicksortChestConfig> config = null;
     private Logger logger = null;
 
     // ===================================================================================
@@ -92,10 +92,14 @@ public class QuicksortService implements ServerTickEvents.EndWorldTick {
         final QuicksortChestConfig chestConfig = getChestConfigFor(world, e.getBlockPos());
         if (chestConfig != null) {
             final List<TargetContainer> visibles = getVisibleChestsNear(world, chestConfig, e, chestConfig.range());
+            this.logger.info(LOG_PREFIX + " chest at " + e.getBlockPos() + " matched config (rangeThroughWalls=" + chestConfig.rangeThroughWalls() + ", range=" + chestConfig.range() + "), found " + visibles.size() + " target chests at: " + visibles.stream().map(tc -> "[" + tc.blockPos().getX() + "," + tc.blockPos().getY() + "," + tc.blockPos().getZ() + "]").collect(java.util.stream.Collectors.toList()));
             if (!visibles.isEmpty()) {
                 final QuicksorterJob job = QuicksorterJob.create(world, chestConfig, e, visibles);
                 if (job != null) jobs.add(job);
             }
+        } else {
+            final String displayName = e.getName().getString();
+            this.logger.debug(LOG_PREFIX + " chest at " + e.getBlockPos() + " did not match (name=\"" + displayName + "\")");
         }
     }
 
@@ -145,7 +149,7 @@ public class QuicksortService implements ServerTickEvents.EndWorldTick {
         }
 
         final Block baseBlock = world.getBlockState(chestPos.below()).getBlock();
-        final ResourceLocation baseBlockId = BuiltInRegistries.BLOCK.getKey(baseBlock);
+        final Identifier baseBlockId = BuiltInRegistries.BLOCK.getKey(baseBlock);
         return this.config.get(baseBlockId);
     }
 
@@ -341,7 +345,7 @@ public class QuicksortService implements ServerTickEvents.EndWorldTick {
         /**
          * @return true if the given targetInventory can accept items from the given stack.
          */
-        private static boolean isValidTarget(ItemStack originStack, Container targetInventory, Collection<ResourceLocation> enchantmentMatchingIds) {
+        private static boolean isValidTarget(ItemStack originStack, Container targetInventory, Collection<Identifier> enchantmentMatchingIds) {
             requireNonNull(targetInventory, "inventory");
             requireNonNull(originStack, "item");
             Integer firstEmptySlot = null;
@@ -364,7 +368,7 @@ public class QuicksortService implements ServerTickEvents.EndWorldTick {
          * @return if the two items are of the same type and, if the item is contained in enchantmentMatchingIds, the
          * stacks have the same enchantments.
          */
-        private static boolean isMatch(ItemStack first, ItemStack second, Collection<ResourceLocation> enchantmentMatchEnabledIds) {
+        private static boolean isMatch(ItemStack first, ItemStack second, Collection<Identifier> enchantmentMatchEnabledIds) {
             return first.is(second.getItem()) &&
                     (!enchantmentMatchEnabledIds.contains(BuiltInRegistries.ITEM.getKey(first.getItem())) ||
                             areEnchantmentsEqual(first, second));
@@ -417,19 +421,23 @@ public class QuicksortService implements ServerTickEvents.EndWorldTick {
                     final BlockPos targetPos = new BlockPos(d, e, f);
                     final BlockState targetState = world.getBlockState(new BlockPos(d, e, f));
                     final Block targetBlock = targetState.getBlock();
-                    final ResourceLocation targetId = BuiltInRegistries.BLOCK.getKey(targetBlock);
+                    final Identifier targetId = BuiltInRegistries.BLOCK.getKey(targetBlock);
                     if (!chestConfig.targetContainerIds().contains(targetId)) continue;
-                    if (targetBlock instanceof ChestBlock && getChestConfigFor(world, targetPos) != null) {
+                    final QuicksortChestConfig targetAsQuicksorter = targetBlock instanceof ChestBlock ? getChestConfigFor(world, targetPos) : null;
+                    if (targetAsQuicksorter != null) {
+                        this.logger.debug(() -> LOG_PREFIX + " skipping chest at " + targetPos + " (treated as Quicksorter - has diamond/emerald block below or name match)");
                         continue; // skip other sorting chests
                     }
 
                     final Vec3 origin = getTransferPoint(originChest.getBlockPos(), targetPos);
                     final Vec3 target = getTransferPoint(targetPos, originChest.getBlockPos());
 
-                    BlockHitResult result = world.clip(new ClipContext(origin, target,
-                            ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, itemEntity));
-                    if (result.getLocation().equals(target)) {
-                        this.logger.debug(() -> LOG_PREFIX + " visible chest found at " + result.getBlockPos() + " " + targetPos);
+                    final boolean isVisible = chestConfig.rangeThroughWalls() ||
+                            world.clip(new ClipContext(origin, target,
+                                    ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, itemEntity))
+                                    .getLocation().equals(target);
+                    if (isVisible) {
+                        this.logger.debug(() -> LOG_PREFIX + " visible chest found at " + targetPos + (chestConfig.rangeThroughWalls() ? " (through walls)" : ""));
                         Vec3 itemVelocity = new Vec3(
                                 (target.x() - origin.x()) / chestConfig.animationTicks(),
                                 (target.y() - origin.y()) / chestConfig.animationTicks(),

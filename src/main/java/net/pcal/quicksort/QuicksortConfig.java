@@ -12,6 +12,7 @@ public record QuicksortConfig(
 ) {
 
     public record QuicksortChestConfig(
+            String chestName,
             Identifier baseBlockId,
             int range,
             int cooldownTicks,
@@ -19,7 +20,8 @@ public record QuicksortConfig(
             float soundVolume,
             float soundPitch,
             Set<Identifier> enchantmentMatchingIds,
-            Set<Identifier> targetContainerIds
+            Set<Identifier> targetContainerIds,
+            boolean rangeThroughWalls
     ) {
     }
 }

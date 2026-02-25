@@ -1,7 +1,7 @@
 package net.pcal.quicksort;
 
 import com.google.gson.Gson;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.pcal.quicksort.QuicksortConfig.QuicksortChestConfig;
 import org.apache.logging.log4j.Level;
 
@@ -36,8 +36,9 @@ class QuicksortConfigParser {
                     chestGson.animationTicks,
                     chestGson.soundVolume,
                     chestGson.soundPitch,
-                    chestGson.nbtMatchEnabledIds != null ? chestGson.nbtMatchEnabledIds : chestGson.enchantmentMatchingIds,
-                    chestGson.targetContainerIds));
+                    chestGson.nbtMatchEnabledIds != null ? chestGson.nbtMatchEnabledIds :                     chestGson.enchantmentMatchingIds,
+                    chestGson.targetContainerIds,
+                    chestGson.rangeThroughWalls));
         }
         // adjust logging to configured level
         final String configuredLevel = configGson.logLevel;
@@ -56,20 +57,21 @@ class QuicksortConfigParser {
             Float soundVolume,
             Float soundPitch,
             Collection<String> enchantmentMatchingIds,
-            Collection<String> targetContainerIds) {
+            Collection<String> targetContainerIds,
+            Boolean rangeThroughWalls) {
 
         // First, check if chestName is provided, if so, use it.
         String finalChestName = (chestName != null && !chestName.isEmpty()) ? chestName : (dflt == null ? null : dflt.chestName());
 
         // If chestName is not provided, fallback to baseBlockId, and convert it to ResourceLocation
-        ResourceLocation finalBaseBlockId = (finalChestName == null && baseBlockId != null && !baseBlockId.isEmpty())
-                ? ResourceLocation.parse(baseBlockId)
+        Identifier finalBaseBlockId = (finalChestName == null && baseBlockId != null && !baseBlockId.isEmpty())
+                ? Identifier.parse(baseBlockId)
                 : (dflt == null ? null : dflt.baseBlockId());
 
         return new QuicksortChestConfig(
                 //ResourceLocation.parse(requireNonNull(baseBlockId, "baseBlockId is required")),
                 finalChestName,  // Use chestName if available
-                finalBaseBlockId != null ? ResourceLocation.parse(requireNonNull(baseBlockId, "baseBlockId is required")) : null,  // Only use baseBlockId if chestName is not present
+                finalBaseBlockId != null ? Identifier.parse(requireNonNull(baseBlockId, "baseBlockId is required")) : null,  // Only use baseBlockId if chestName is not present
                 requireNonNull(range != null ? range : dflt == null ? null : dflt.range(),
                         "range is required"),
                 requireNonNull(cooldownTicks != null ? cooldownTicks : dflt == null ? null : dflt.cooldownTicks(),
@@ -83,13 +85,14 @@ class QuicksortConfigParser {
                 requireNonNull(enchantmentMatchingIds != null ? toIdentifierSet(enchantmentMatchingIds) : dflt == null ? null : dflt.enchantmentMatchingIds(),
                         "enchantmentMatchingIds"),
                 requireNonNull(targetContainerIds != null ? toIdentifierSet(targetContainerIds) : dflt == null ? null : dflt.targetContainerIds(),
-                        "targetContainerIds")
+                        "targetContainerIds"),
+                rangeThroughWalls != null ? rangeThroughWalls : (dflt != null && dflt.rangeThroughWalls())
         );
     }
 
-    private static Set<ResourceLocation> toIdentifierSet(Collection<String> enchantmentMatchingIds) {
-        final Set<ResourceLocation> set = new HashSet<>();
-        for (String id : enchantmentMatchingIds) set.add(ResourceLocation.parse(id));
+    private static Set<Identifier> toIdentifierSet(Collection<String> enchantmentMatchingIds) {
+        final Set<Identifier> set = new HashSet<>();
+        for (String id : enchantmentMatchingIds) set.add(Identifier.parse(id));
         return set;
     }
 
@@ -124,6 +127,7 @@ class QuicksortConfigParser {
         Float soundPitch;
         List<String> enchantmentMatchingIds;
         List<String> targetContainerIds;
+        Boolean rangeThroughWalls;
 
         @Deprecated // this was the old name for enchantmentMatchingIds
         List<String> nbtMatchEnabledIds;

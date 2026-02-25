@@ -15,6 +15,7 @@
     {
       'chestName': 'Quicksorter',  // Use chestName for clean design
       'range': 15,  // Range at which target chests will be detected
+      'rangeThroughWalls': true,  // If true, sort to all chests within range regardless of walls/obstacles. If false, requires line-of-sight (vanilla behavior).
       'cooldownTicks': 3,  // Number of ticks between items
       'animationTicks': 10,  // Number of ticks it takes the item animation to complete. Set to -1 to disable animation.
       'soundVolume': 0.75,
@@ -28,6 +29,9 @@
 
       // range at which target chests will be detected
       'range': 15,
+
+      // if true, sort to all chests within range regardless of walls/obstacles
+      'rangeThroughWalls': true,
 
       // number of ticks between items
       'cooldownTicks': 3,
@@ -56,7 +60,10 @@
       'baseBlockId': 'minecraft:emerald_block',
 
       // range at which target chests will be detected
-      'range': 5
+      'range': 15,
+
+      // inherit rangeThroughWalls: true from diamond config above
+      'rangeThroughWalls': true
     }
 
   ],
